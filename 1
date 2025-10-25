@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Ventas de Notebooks</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+        .tab-active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+            border-bottom-width: 2px;
+        }
+        .tab-inactive {
+            border-bottom-color: transparent;
+            color: #6b7280;
+            border-bottom-width: 2px;
+        }
+        .tab-content {
+            display: none !important;
+        }
+        .tab-content-active {
+            display: block !important;
+        }
+        .form-input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out;
+        }
+        .form-label {
+            @apply block text-sm font-semibold text-gray-700 mb-1;
+        }
+        .btn-primary {
+            @apply inline-flex items-center justify-center py-2.5 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200;
+        }
+        .btn-secondary {
+            @apply inline-flex items-center justify-center py-2.5 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200;
+        }
+        .btn-danger {
+            @apply inline-flex items-center justify-center py-2.5 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200;
+        }
+        .card {
+            @apply bg-white shadow-lg rounded-2xl p-6 md:p-8;
+        }
+        #message-box {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #333;
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 0.875rem;
+        }
+        #message-box.success {
+            background-color: #10B981;
+        }
+        #message-box.error {
+            background-color: #EF4444;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+        }
+        .online-indicator {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="antialiased bg-gray-50">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        
+        <!-- Header -->
+        <header class="mb-8 p-6 bg-white rounded-2xl shadow-md flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-blue-600">Gestor de Negocio</h1>
+            <div class="flex items-center gap-4">
+                <div class="text-xs text-gray-500 text-right">
+                    <span id="auth-status" class="font-medium">Sistema Local</span>
+                    <span id="user-id-display" class="block">Modo Offline</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div id="connection-status" class="w-3 h-3 rounded-full bg-gray-400"></div>
+                    <button id="sync-btn" onclick="toggleOnlineMode()" class="btn-secondary text-sm py-1 px-3">
+                        🌐 Activar Online
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tabs Navigation -->
+        <nav class="border-b border-gray-200 mb-6">
+            <ul class="flex -mb-px gap-6">
+                <li><a href="#" class="tab-link tab-active py-3 px-1 text-base" onclick="showTab('inventario', this)">📦 Inventario</a></li>
+                <li><a href="#" class="tab-link tab-inactive py-3 px-1 text-base" onclick="showTab('ventas', this)">💰 Ventas</a></li>
+                <li><a href="#" class="tab-link tab-inactive py-3 px-1 text-base" onclick="showTab('pagos', this)">💳 Pagos Varios</a></li>
+                <li><a href="#" class="tab-link tab-inactive py-3 px-1 text-base" onclick="showTab('capital', this)">🏦 Capital</a></li>
+                <li><a href="#" class="tab-link tab-inactive py-3 px-1 text-base" onclick="showTab('reportes', this)">📊 Reportes</a></li>
+            </ul>
+        </nav>
+
+        <!-- Inventario Tab -->
+        <div id="inventario" class="tab-content-active">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Formulario de Producto -->
+                <div class="lg:col-span-1">
+                    <div class="card">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Agregar Notebook</h2>
+                        <form id="product-form" onsubmit="addProduct(event)">
+                            <div class="mb-4">
+                                <label for="marca" class="form-label">Marca</label>
+                                <input type="text" id="marca" name="marca" class="form-input" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="modelo" class="form-label">Modelo</label>
+                                <input type="text" id="modelo" name="modelo" class="form-input" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="costo" class="form-label">Costo (₲)</label>
+                                <input type="number" id="costo" name="costo" class="form-input" step="1" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="precio" class="form-label">Precio de Venta (₲)</label>
+                                <input type="number" id="precio" name="precio" class="form-input" step="1" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="stock" class="form-label">Stock</label>
+                                <input type="number" id="stock" name="stock" class="form-input" min="0" required>
+                            </div>
+                            <div class="mb-6">
+                                <label for="descripcion" class="form-label">Descripción</label>
+                                <textarea id="descripcion" name="descripcion" class="form-input" rows="3"></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary w-full">
+                                ➕ Agregar Producto
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Lista de Productos -->
+                <div class="lg:col-span-2">
+                    <div class="card">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-semibold text-gray-800">Inventario de Notebooks</h2>
+                            <div class="text-sm text-gray-600">
+                                Total productos: <span id="total-products" class="font-semibold">0</span>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-table" class="bg-white divide-y divide-gray-200">
+                                    <!-- Los productos se cargarán aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ventas Tab -->
+        <div id="ventas" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Formulario de Venta -->
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Nueva Venta</h2>
+                    <form id="sale-form" onsubmit="addSale(event)">
+                        <div class="mb-4">
+                            <label for="cliente" class="form-label">Cliente</label>
+                            <input type="text" id="cliente" name="cliente" class="form-input" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="producto-venta" class="form-label">Producto</label>
+                            <select id="producto-venta" name="producto-venta" class="form-input" required>
+                                <option value="">Seleccionar producto...</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="cantidad" class="form-label">Cantidad</label>
+                            <input type="number" id="cantidad" name="cantidad" class="form-input" min="1" required>
+                        </div>
+                        <div class="mb-6">
+                            <div class="text-lg font-semibold text-gray-800">
+                                Total: ₲<span id="total-venta">0</span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">
+                            💳 Registrar Venta
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Historial de Ventas -->
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Historial de Ventas</h2>
+                    <div class="space-y-3" id="sales-history">
+                        <!-- Las ventas se cargarán aquí -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagos Varios Tab -->
+        <div id="pagos" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Formulario de Pago -->
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Registrar Pago</h2>
+                    <form id="payment-form" onsubmit="addPayment(event)">
+                        <div class="mb-4">
+                            <label for="tipo-pago" class="form-label">Tipo de Pago</label>
+                            <select id="tipo-pago" name="tipo-pago" class="form-input" required>
+                                <option value="">Seleccionar tipo...</option>
+                                <option value="alquiler">🏠 Alquiler</option>
+                                <option value="servicios">⚡ Servicios (Luz, Agua, Internet)</option>
+                                <option value="sueldos">👥 Sueldos</option>
+                                <option value="proveedores">📦 Proveedores</option>
+                                <option value="impuestos">📋 Impuestos</option>
+                                <option value="mantenimiento">🔧 Mantenimiento</option>
+                                <option value="marketing">📢 Marketing</option>
+                                <option value="otros">📝 Otros</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="descripcion-pago" class="form-label">Descripción</label>
+                            <input type="text" id="descripcion-pago" name="descripcion-pago" class="form-input" required placeholder="Ej: Alquiler local comercial">
+                        </div>
+                        <div class="mb-4">
+                            <label for="monto-pago" class="form-label">Monto (₲)</label>
+                            <input type="number" id="monto-pago" name="monto-pago" class="form-input" step="1" required>
+                        </div>
+                        <div class="mb-6">
+                            <label for="fecha-pago" class="form-label">Fecha</label>
+                            <input type="date" id="fecha-pago" name="fecha-pago" class="form-input" required>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">
+                            💳 Registrar Pago
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Historial de Pagos -->
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Historial de Pagos</h2>
+                    <div class="space-y-3" id="payments-history">
+                        <!-- Los pagos se cargarán aquí -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capital Tab -->
+        <div id="capital" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Formulario de Capital -->
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Movimiento de Capital</h2>
+                    <form id="capital-form" onsubmit="addCapitalMovement(event)">
+                        <div class="mb-4">
+                            <label for="tipo-movimiento" class="form-label">Tipo de Movimiento</label>
+                            <select id="tipo-movimiento" name="tipo-movimiento" class="form-input" required>
+                                <option value="">Seleccionar tipo...</option>
+                                <option value="ingreso">💰 Ingreso de Capital</option>
+                                <option value="retiro">💸 Retiro de Capital</option>
+                                <option value="inversion">📈 Inversión</option>
+                                <option value="prestamo">🏦 Préstamo</option>
+                                <option value="pago-prestamo">💳 Pago de Préstamo</option>
+                                <option value="compra-inventario">📦 Compra de Inventario</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="descripcion-capital" class="form-label">Descripción</label>
+                            <input type="text" id="descripcion-capital" name="descripcion-capital" class="form-input" required placeholder="Ej: Inversión inicial del socio">
+                        </div>
+                        <div class="mb-4">
+                            <label for="monto-capital" class="form-label">Monto (₲)</label>
+                            <input type="number" id="monto-capital" name="monto-capital" class="form-input" step="1" required>
+                        </div>
+                        <div class="mb-6">
+                            <label for="fecha-capital" class="form-label">Fecha</label>
+                            <input type="date" id="fecha-capital" name="fecha-capital" class="form-input" required>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">
+                            🏦 Registrar Movimiento
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Resumen de Capital -->
+                <div class="space-y-6">
+                    <div class="card">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen de Capital</h2>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                <span class="font-medium text-green-800">Capital Total</span>
+                                <span class="text-xl font-bold text-green-600">₲<span id="capital-total">0</span></span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                <span class="font-medium text-blue-800">Ingresos</span>
+                                <span class="text-lg font-semibold text-blue-600">₲<span id="capital-ingresos">0</span></span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                                <span class="font-medium text-red-800">Retiros</span>
+                                <span class="text-lg font-semibold text-red-600">₲<span id="capital-retiros">0</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">Últimos Movimientos</h3>
+                        <div class="space-y-2" id="capital-history">
+                            <!-- Los movimientos se cargarán aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reportes Tab -->
+        <div id="reportes" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                <!-- Estadísticas -->
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Ventas Totales</h3>
+                    <div class="text-2xl font-bold text-green-600">₲<span id="total-sales">0</span></div>
+                </div>
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Total Pagos</h3>
+                    <div class="text-2xl font-bold text-red-600">₲<span id="total-payments">0</span></div>
+                </div>
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Capital Actual</h3>
+                    <div class="text-2xl font-bold text-blue-600">₲<span id="current-capital">0</span></div>
+                </div>
+                <div class="card text-center">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Ganancia Neta</h3>
+                    <div class="text-2xl font-bold text-purple-600">₲<span id="net-profit">0</span></div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="card">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Resumen Financiero</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span>Productos Vendidos:</span>
+                            <span class="font-semibold"><span id="products-sold">0</span> unidades</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Valor Inventario:</span>
+                            <span class="font-semibold">₲<span id="inventory-value">0</span></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Costo Total Vendido:</span>
+                            <span class="font-semibold">₲<span id="total-costs">0</span></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Promedio por Venta:</span>
+                            <span class="font-semibold">₲<span id="average-sale">0</span></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Total Transacciones:</span>
+                            <span class="font-semibold"><span id="total-transactions">0</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría</h3>
+                    <div id="expenses-by-category" class="space-y-2">
+                        <!-- Los gastos por categoría se cargarán aquí -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Productos Más Vendidos</h2>
+                <div id="top-products" class="space-y-2">
+                    <!-- Los productos más vendidos se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-semibold mb-4">Confirmar Eliminación</h3>
+            <p class="mb-6">¿Estás seguro de que deseas eliminar este producto?</p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal()" class="btn-secondary">Cancelar</button>
+                <button onclick="confirmDelete()" class="btn-danger">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Login Online -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-semibold mb-4">🌐 Activar Modo Online</h3>
+            <p class="text-sm text-gray-600 mb-4">Ingresa tu ID de usuario para sincronizar tus datos en la nube</p>
+            <div class="mb-4">
+                <label for="user-id-input" class="form-label">ID de Usuario</label>
+                <input type="text" id="user-id-input" class="form-input" placeholder="Ej: mi-negocio-2024">
+                <p class="text-xs text-gray-500 mt-1">Si es tu primera vez, crea un ID único. Si ya tienes uno, úsalo para acceder a tus datos.</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeLoginModal()" class="btn-secondary">Cancelar</button>
+                <button onclick="connectOnline()" class="btn-primary">Conectar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Box -->
+    <div id="message-box"></div>
+
+    <script>
+        // Variables globales
+        let products = JSON.parse(localStorage.getItem('products')) || [];
+        let sales = JSON.parse(localStorage.getItem('sales')) || [];
+        let payments = JSON.parse(localStorage.getItem('payments')) || [];
+        let capitalMovements = JSON.parse(localStorage.getItem('capitalMovements')) || [];
+        let productToDelete = null;
+        let isOnlineMode = localStorage.getItem('isOnlineMode') === 'true' || false;
+        let userId = localStorage.getItem('userId') || null;
+
+        // Simulación de base de datos online (usando localStorage con prefijo)
+        const ONLINE_PREFIX = 'online_';
+
+        // Funciones de modo online
+        function toggleOnlineMode() {
+            if (!isOnlineMode) {
+                document.getElementById('login-modal').style.display = 'block';
+            } else {
+                disconnectOnline();
+            }
+        }
+
+        function connectOnline() {
+            const userIdInput = document.getElementById('user-id-input').value.trim();
+            if (!userIdInput) {
+                showMessage('Por favor ingresa un ID de usuario', 'error');
+                return;
+            }
+
+            userId = userIdInput;
+            isOnlineMode = true;
+            
+            localStorage.setItem('userId', userId);
+            localStorage.setItem('isOnlineMode', 'true');
+            
+            // Sincronizar datos locales a online
+            syncToOnline();
+            
+            updateConnectionStatus();
+            closeLoginModal();
+            showMessage('¡Conectado al modo online! Datos sincronizados', 'success');
+        }
+
+        function disconnectOnline() {
+            isOnlineMode = false;
+            localStorage.setItem('isOnlineMode', 'false');
+            updateConnectionStatus();
+            showMessage('Desconectado del modo online. Trabajando en modo local', 'success');
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('user-id-input').value = '';
+        }
+
+        function updateConnectionStatus() {
+            const statusDot = document.getElementById('connection-status');
+            const syncBtn = document.getElementById('sync-btn');
+            const authStatus = document.getElementById('auth-status');
+            const userIdDisplay = document.getElementById('user-id-display');
+
+            if (isOnlineMode && userId) {
+                statusDot.className = 'w-3 h-3 rounded-full bg-green-500 online-indicator';
+                syncBtn.textContent = '🔌 Desconectar';
+                syncBtn.className = 'btn-danger text-sm py-1 px-3';
+                authStatus.textContent = 'Modo Online';
+                userIdDisplay.textContent = `Usuario: ${userId}`;
+            } else {
+                statusDot.className = 'w-3 h-3 rounded-full bg-gray-400';
+                syncBtn.textContent = '🌐 Activar Online';
+                syncBtn.className = 'btn-secondary text-sm py-1 px-3';
+                authStatus.textContent = 'Sistema Local';
+                userIdDisplay.textContent = 'Modo Offline';
+            }
+        }
+
+        function syncToOnline() {
+            if (!isOnlineMode || !userId) return;
+
+            // Guardar datos locales en el almacenamiento online
+            localStorage.setItem(`${ONLINE_PREFIX}${userId}_products`, JSON.stringify(products));
+            localStorage.setItem(`${ONLINE_PREFIX}${userId}_sales`, JSON.stringify(sales));
+            localStorage.setItem(`${ONLINE_PREFIX}${userId}_payments`, JSON.stringify(payments));
+            localStorage.setItem(`${ONLINE_PREFIX}${userId}_capitalMovements`, JSON.stringify(capitalMovements));
+            localStorage.setItem(`${ONLINE_PREFIX}${userId}_lastSync`, new Date().toISOString());
+        }
+
+        function syncFromOnline() {
+            if (!isOnlineMode || !userId) return;
+
+            // Cargar datos desde el almacenamiento online
+            const onlineProducts = localStorage.getItem(`${ONLINE_PREFIX}${userId}_products`);
+            const onlineSales = localStorage.getItem(`${ONLINE_PREFIX}${userId}_sales`);
+            const onlinePayments = localStorage.getItem(`${ONLINE_PREFIX}${userId}_payments`);
+            const onlineCapitalMovements = localStorage.getItem(`${ONLINE_PREFIX}${userId}_capitalMovements`);
+
+            if (onlineProducts) {
+                products = JSON.parse(onlineProducts);
+                localStorage.setItem('products', JSON.stringify(products));
+            }
+            if (onlineSales) {
+                sales = JSON.parse(onlineSales);
+                localStorage.setItem('sales', JSON.stringify(sales));
+            }
+            if (onlinePayments) {
+                payments = JSON.parse(onlinePayments);
+                localStorage.setItem('payments', JSON.stringify(payments));
+            }
+            if (onlineCapitalMovements) {
+                capitalMovements = JSON.parse(onlineCapitalMovements);
+                localStorage.setItem('capitalMovements', JSON.stringify(capitalMovements));
+            }
+
+            // Actualizar todas las vistas
+            renderProducts();
+            renderSales();
+            renderPayments();
+            renderCapitalMovements();
+            updateProductSelect();
+            updateCapitalSummary();
+            updateReports();
+        }
+
+        function saveData() {
+            // Guardar localmente
+            localStorage.setItem('products', JSON.stringify(products));
+            localStorage.setItem('sales', JSON.stringify(sales));
+            localStorage.setItem('payments', JSON.stringify(payments));
+            localStorage.setItem('capitalMovements', JSON.stringify(capitalMovements));
+
+            // Si está en modo online, sincronizar
+            if (isOnlineMode) {
+                syncToOnline();
+            }
+        }
+
+        // Funciones de navegación
+        function showTab(tabName, element) {
+            // Ocultar todos los contenidos
+            document.querySelectorAll('#inventario, #ventas, #pagos, #capital, #reportes').forEach(content => {
+                content.classList.remove('tab-content-active');
+                content.classList.add('tab-content');
+            });
+            
+            // Mostrar el contenido seleccionado
+            const targetTab = document.getElementById(tabName);
+            if (targetTab) {
+                targetTab.classList.remove('tab-content');
+                targetTab.classList.add('tab-content-active');
+            }
+            
+            // Actualizar estilos de tabs
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.classList.remove('tab-active');
+                link.classList.add('tab-inactive');
+            });
+            element.classList.remove('tab-inactive');
+            element.classList.add('tab-active');
+            
+            // Actualizar datos según el tab
+            if (tabName === 'ventas') {
+                updateProductSelect();
+                renderSales();
+            } else if (tabName === 'pagos') {
+                renderPayments();
+                setTodayDate('fecha-pago');
+            } else if (tabName === 'capital') {
+                renderCapitalMovements();
+                updateCapitalSummary();
+                setTodayDate('fecha-capital');
+            } else if (tabName === 'reportes') {
+                updateReports();
+            }
+        }
+
+        // Funciones de productos
+        function addProduct(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const costo = parseFloat(formData.get('costo'));
+            const stock = parseInt(formData.get('stock'));
+            const costoTotal = costo * stock;
+            
+            const product = {
+                id: Date.now(),
+                marca: formData.get('marca'),
+                modelo: formData.get('modelo'),
+                costo: costo,
+                precio: parseFloat(formData.get('precio')),
+                stock: stock,
+                descripcion: formData.get('descripcion') || ''
+            };
+            
+            // Crear movimiento de capital automático por la compra
+            const purchaseMovement = {
+                id: Date.now() + 1,
+                tipo: 'compra-inventario',
+                descripcion: `Compra: ${product.marca} ${product.modelo} (${stock} unidades)`,
+                monto: costoTotal,
+                fecha: new Date().toISOString().split('T')[0]
+            };
+            
+            capitalMovements.push(purchaseMovement);
+            products.push(product);
+            
+            saveData();
+            
+            event.target.reset();
+            renderProducts();
+            showMessage(`Producto agregado. Capital debitado: ₲${costoTotal.toLocaleString()}`, 'success');
+        }
+
+        function renderProducts() {
+            const tbody = document.getElementById('products-table');
+            tbody.innerHTML = '';
+            
+            products.forEach(product => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${product.marca} ${product.modelo}</div>
+                        <div class="text-sm text-gray-500">${product.descripcion}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₲${(product.costo || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₲${product.precio.toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.stock > 5 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${product.stock} unidades
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900">Eliminar</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('total-products').textContent = products.length;
+        }
+
+        function deleteProduct(id) {
+            productToDelete = id;
+            document.getElementById('confirm-modal').style.display = 'block';
+        }
+
+        function confirmDelete() {
+            if (productToDelete) {
+                products = products.filter(p => p.id !== productToDelete);
+                saveData();
+                renderProducts();
+                updateProductSelect();
+                showMessage('Producto eliminado exitosamente', 'success');
+                productToDelete = null;
+            }
+            closeModal();
+        }
+
+        function closeModal() {
+            document.getElementById('confirm-modal').style.display = 'none';
+        }
+
+        // Funciones de ventas
+        function updateProductSelect() {
+            const select = document.getElementById('producto-venta');
+            select.innerHTML = '<option value="">Seleccionar producto...</option>';
+            
+            products.filter(p => p.stock > 0).forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.marca} ${product.modelo} - ₲${product.precio.toLocaleString()} (Stock: ${product.stock})`;
+                select.appendChild(option);
+            });
+        }
+
+        function addSale(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const productId = parseInt(formData.get('producto-venta'));
+            const cantidad = parseInt(formData.get('cantidad'));
+            
+            const product = products.find(p => p.id === productId);
+            if (!product) {
+                showMessage('Producto no encontrado', 'error');
+                return;
+            }
+            
+            if (product.stock < cantidad) {
+                showMessage('Stock insuficiente', 'error');
+                return;
+            }
+            
+            const sale = {
+                id: Date.now(),
+                cliente: formData.get('cliente'),
+                productId: productId,
+                producto: `${product.marca} ${product.modelo}`,
+                cantidad: cantidad,
+                precio: product.precio,
+                costo: product.costo || 0,
+                total: product.precio * cantidad,
+                costoTotal: (product.costo || 0) * cantidad,
+                fecha: new Date().toLocaleDateString()
+            };
+            
+            // Crear movimiento de capital automático por la venta
+            const saleMovement = {
+                id: Date.now() + 1,
+                tipo: 'ingreso',
+                descripcion: `Venta: ${product.marca} ${product.modelo} a ${sale.cliente} (${cantidad} unidades)`,
+                monto: sale.total,
+                fecha: new Date().toISOString().split('T')[0]
+            };
+            
+            // Actualizar stock
+            product.stock -= cantidad;
+            
+            capitalMovements.push(saleMovement);
+            sales.push(sale);
+            saveData();
+            
+            event.target.reset();
+            document.getElementById('total-venta').textContent = '0.00';
+            renderProducts();
+            renderSales();
+            updateProductSelect();
+            showMessage(`Venta registrada. Capital aumentado: ₲${sale.total.toLocaleString()}`, 'success');
+        }
+
+        function renderSales() {
+            const container = document.getElementById('sales-history');
+            container.innerHTML = '';
+            
+            sales.slice(-10).reverse().forEach(sale => {
+                const div = document.createElement('div');
+                div.className = 'p-4 border border-gray-200 rounded-lg';
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-medium text-gray-900">${sale.cliente}</div>
+                            <div class="text-sm text-gray-500">${sale.producto}</div>
+                            <div class="text-sm text-gray-500">Cantidad: ${sale.cantidad}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold text-green-600">₲${sale.total.toLocaleString()}</div>
+                            <div class="text-sm text-gray-500">${sale.fecha}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Funciones de pagos
+        function addPayment(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const payment = {
+                id: Date.now(),
+                tipo: formData.get('tipo-pago'),
+                descripcion: formData.get('descripcion-pago'),
+                monto: parseFloat(formData.get('monto-pago')),
+                fecha: formData.get('fecha-pago')
+            };
+            
+            // Crear movimiento de capital automático por el pago (retiro)
+            const paymentMovement = {
+                id: Date.now() + 1,
+                tipo: 'retiro',
+                descripcion: `Pago: ${payment.descripcion}`,
+                monto: payment.monto,
+                fecha: payment.fecha
+            };
+            
+            capitalMovements.push(paymentMovement);
+            payments.push(payment);
+            saveData();
+            
+            event.target.reset();
+            setTodayDate('fecha-pago');
+            renderPayments();
+            showMessage(`Pago registrado. Capital debitado: ₲${payment.monto.toLocaleString()}`, 'success');
+        }
+
+        function renderPayments() {
+            const container = document.getElementById('payments-history');
+            container.innerHTML = '';
+            
+            payments.slice(-10).reverse().forEach(payment => {
+                const div = document.createElement('div');
+                div.className = 'p-4 border border-gray-200 rounded-lg';
+                
+                const tipoEmoji = {
+                    'alquiler': '🏠',
+                    'servicios': '⚡',
+                    'sueldos': '👥',
+                    'proveedores': '📦',
+                    'impuestos': '📋',
+                    'mantenimiento': '🔧',
+                    'marketing': '📢',
+                    'otros': '📝'
+                };
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-medium text-gray-900">${tipoEmoji[payment.tipo] || '📝'} ${payment.descripcion}</div>
+                            <div class="text-sm text-gray-500 capitalize">${payment.tipo.replace('-', ' ')}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold text-red-600">₲${payment.monto.toLocaleString()}</div>
+                            <div class="text-sm text-gray-500">${new Date(payment.fecha).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Funciones de capital
+        function addCapitalMovement(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const movement = {
+                id: Date.now(),
+                tipo: formData.get('tipo-movimiento'),
+                descripcion: formData.get('descripcion-capital'),
+                monto: parseFloat(formData.get('monto-capital')),
+                fecha: formData.get('fecha-capital')
+            };
+            
+            capitalMovements.push(movement);
+            saveData();
+            
+            event.target.reset();
+            setTodayDate('fecha-capital');
+            renderCapitalMovements();
+            updateCapitalSummary();
+            showMessage('Movimiento de capital registrado exitosamente', 'success');
+        }
+
+        function renderCapitalMovements() {
+            const container = document.getElementById('capital-history');
+            container.innerHTML = '';
+            
+            capitalMovements.slice(-5).reverse().forEach(movement => {
+                const div = document.createElement('div');
+                div.className = 'p-3 border border-gray-200 rounded-lg';
+                
+                const tipoEmoji = {
+                    'ingreso': '💰',
+                    'retiro': '💸',
+                    'inversion': '📈',
+                    'prestamo': '🏦',
+                    'pago-prestamo': '💳',
+                    'compra-inventario': '📦'
+                };
+                
+                const isPositive = ['ingreso', 'prestamo'].includes(movement.tipo);
+                const colorClass = isPositive ? 'text-green-600' : 'text-red-600';
+                const sign = isPositive ? '+' : '-';
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${tipoEmoji[movement.tipo]} ${movement.descripcion}</div>
+                            <div class="text-xs text-gray-500">${new Date(movement.fecha).toLocaleDateString()}</div>
+                        </div>
+                        <div class="font-semibold ${colorClass}">${sign}₲${movement.monto.toLocaleString()}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateCapitalSummary() {
+            const ingresos = capitalMovements
+                .filter(m => ['ingreso', 'prestamo'].includes(m.tipo))
+                .reduce((sum, m) => sum + m.monto, 0);
+            
+            const retiros = capitalMovements
+                .filter(m => ['retiro', 'inversion', 'pago-prestamo', 'compra-inventario'].includes(m.tipo))
+                .reduce((sum, m) => sum + m.monto, 0);
+            
+            const capitalTotal = ingresos - retiros;
+            
+            document.getElementById('capital-total').textContent = capitalTotal.toLocaleString();
+            document.getElementById('capital-ingresos').textContent = ingresos.toLocaleString();
+            document.getElementById('capital-retiros').textContent = retiros.toLocaleString();
+        }
+
+        // Funciones de reportes
+        function updateReports() {
+            const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0);
+            const totalPayments = payments.reduce((sum, payment) => sum + payment.monto, 0);
+            const productsSold = sales.reduce((sum, sale) => sum + sale.cantidad, 0);
+            const inventoryValue = products.reduce((sum, product) => sum + (product.precio * product.stock), 0);
+            
+            // Capital actual
+            const capitalIngresos = capitalMovements
+                .filter(m => ['ingreso', 'prestamo'].includes(m.tipo))
+                .reduce((sum, m) => sum + m.monto, 0);
+            const capitalRetiros = capitalMovements
+                .filter(m => ['retiro', 'inversion', 'pago-prestamo', 'compra-inventario'].includes(m.tipo))
+                .reduce((sum, m) => sum + m.monto, 0);
+            const currentCapital = capitalIngresos - capitalRetiros;
+            
+            // Ganancia real (ventas - costos de productos vendidos - pagos)
+            const totalCosts = sales.reduce((sum, sale) => sum + (sale.costoTotal || 0), 0);
+            const netProfit = totalSales - totalCosts - totalPayments;
+            
+            // Promedio por venta
+            const averageSale = sales.length > 0 ? totalSales / sales.length : 0;
+            
+            // Total transacciones
+            const totalTransactions = sales.length + payments.length + capitalMovements.length;
+            
+            // Actualizar elementos del DOM
+            document.getElementById('total-sales').textContent = totalSales.toLocaleString();
+            document.getElementById('total-payments').textContent = totalPayments.toLocaleString();
+            document.getElementById('current-capital').textContent = currentCapital.toLocaleString();
+            document.getElementById('net-profit').textContent = netProfit.toLocaleString();
+            document.getElementById('products-sold').textContent = productsSold;
+            document.getElementById('inventory-value').textContent = inventoryValue.toLocaleString();
+            document.getElementById('total-costs').textContent = totalCosts.toLocaleString();
+            document.getElementById('average-sale').textContent = averageSale.toLocaleString();
+            document.getElementById('total-transactions').textContent = totalTransactions;
+            
+            // Gastos por categoría
+            const expensesByCategory = {};
+            payments.forEach(payment => {
+                if (!expensesByCategory[payment.tipo]) {
+                    expensesByCategory[payment.tipo] = 0;
+                }
+                expensesByCategory[payment.tipo] += payment.monto;
+            });
+            
+            const expensesContainer = document.getElementById('expenses-by-category');
+            expensesContainer.innerHTML = '';
+            
+            if (Object.keys(expensesByCategory).length === 0) {
+                expensesContainer.innerHTML = '<p class="text-gray-500">No hay gastos registrados</p>';
+            } else {
+                const sortedExpenses = Object.entries(expensesByCategory)
+                    .sort(([,a], [,b]) => b - a);
+                
+                const tipoNames = {
+                    'alquiler': 'Alquiler',
+                    'servicios': 'Servicios',
+                    'sueldos': 'Sueldos',
+                    'proveedores': 'Proveedores',
+                    'impuestos': 'Impuestos',
+                    'mantenimiento': 'Mantenimiento',
+                    'marketing': 'Marketing',
+                    'otros': 'Otros'
+                };
+                
+                sortedExpenses.forEach(([tipo, monto]) => {
+                    const percentage = totalPayments > 0 ? (monto / totalPayments * 100).toFixed(1) : 0;
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center p-2 bg-gray-50 rounded';
+                    div.innerHTML = `
+                        <span class="text-sm">${tipoNames[tipo] || tipo}</span>
+                        <div class="text-right">
+                            <div class="text-sm font-semibold">₲${monto.toLocaleString()}</div>
+                            <div class="text-xs text-gray-500">${percentage}%</div>
+                        </div>
+                    `;
+                    expensesContainer.appendChild(div);
+                });
+            }
+            
+            // Productos más vendidos
+            const productSales = {};
+            sales.forEach(sale => {
+                if (!productSales[sale.producto]) {
+                    productSales[sale.producto] = 0;
+                }
+                productSales[sale.producto] += sale.cantidad;
+            });
+            
+            const topProducts = Object.entries(productSales)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5);
+            
+            const topProductsContainer = document.getElementById('top-products');
+            topProductsContainer.innerHTML = '';
+            
+            if (topProducts.length === 0) {
+                topProductsContainer.innerHTML = '<p class="text-gray-500">No hay ventas registradas</p>';
+            } else {
+                topProducts.forEach(([producto, cantidad]) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-lg';
+                    div.innerHTML = `
+                        <span class="font-medium">${producto}</span>
+                        <span class="text-blue-600 font-semibold">${cantidad} vendidos</span>
+                    `;
+                    topProductsContainer.appendChild(div);
+                });
+            }
+        }
+
+        // Función para calcular total de venta
+        document.getElementById('producto-venta').addEventListener('change', calculateSaleTotal);
+        document.getElementById('cantidad').addEventListener('input', calculateSaleTotal);
+
+        function calculateSaleTotal() {
+            const productId = parseInt(document.getElementById('producto-venta').value);
+            const cantidad = parseInt(document.getElementById('cantidad').value) || 0;
+            
+            if (productId && cantidad > 0) {
+                const product = products.find(p => p.id === productId);
+                if (product) {
+                    const total = product.precio * cantidad;
+                    document.getElementById('total-venta').textContent = total.toLocaleString();
+                    return;
+                }
+            }
+            
+            document.getElementById('total-venta').textContent = '0';
+        }
+
+        // Función para mostrar mensajes
+        function showMessage(message, type = 'success') {
+            const messageBox = document.getElementById('message-box');
+            messageBox.textContent = message;
+            messageBox.className = type;
+            messageBox.style.display = 'block';
+            
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000);
+        }
+
+        // Función auxiliar para establecer fecha de hoy
+        function setTodayDate(inputId) {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById(inputId).value = today;
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            // Si está en modo online, cargar datos de la nube
+            if (isOnlineMode && userId) {
+                syncFromOnline();
+            }
+            
+            renderProducts();
+            renderSales();
+            renderPayments();
+            renderCapitalMovements();
+            updateProductSelect();
+            updateCapitalSummary();
+            updateReports();
+            updateConnectionStatus();
+            
+            // Establecer fechas de hoy por defecto
+            setTodayDate('fecha-pago');
+            setTodayDate('fecha-capital');
+        });
+    </script>
+
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'993df237b119988b',t:'MTc2MTM1NTgwMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
